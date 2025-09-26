@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Select Sheet</title>
+</head>
+<body>
+  <h2>Select a Sheet to Analyze</h2>
+  <form action="/show_sheet" method="get">
+    <select name="sheet">
+      {% for sheet in sheets %}
+        <option value="{{ sheet }}">{{ sheet }}</option>
+      {% endfor %}
+    </select>
+    <input type="submit" value="Show Sheet" />
+  </form>
+</body>
+</html>

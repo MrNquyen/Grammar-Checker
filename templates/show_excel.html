@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Select Sheet</title>
+    <!-- Loading Spread JS Scripts -->
+    <script src="static/spreadjs\scripts\gc.spread.sheets.all.18.2.3.min.js" type="text/javascript"></script>
+    <script src="static/spreadjs\scripts\gc.spread.excelio.18.2.3.min.js" type="text/javascript"></script>
+    <!-- Loading SpreadJS CSS -->
+    <link
+        href="static/spreadjs\css\gc.spread.sheets.excel2016colorful.18.2.3.css"
+        rel="stylesheet"
+        type="text/css"
+    /> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+
+<body>
+    <!-- Header with sheet selector -->
+    <header style="height: 30vh;">
+        <h2>Showing sheet: {{ sheet_name }}</h2>
+        <div class="toolbar">
+            <form id="sheetForm" action="/show_sheet" method="get">
+                <select name="sheet">
+                    {% for sheet in sheets %}
+                        <option value="{{ sheet }}">{{ sheet }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Show Sheet</button>
+            </form>
+        </div>
+    </header>
+    
+    <!-- Show excel file -->
+    <!-- <div id="ss" style="position: absolute; top: 1000; left: 0; right: 0; bottom: -500;"></div> -->
+    <!-- <div id="ss" style="width: 50%; height: 0%;"></div> -->
+    <!-- <div id="ss" style="width: 80%; height: 100vh; float: left; border: 1px solid #ccc;"></div> -->
+     
+    <div id="ss"></div>
+
+
+    <!-- <div id="ss"></div> -->
+    <script>
+        // Initialize SpreadJS in the container
+        var spread = new GC.Spread.Sheets.Workbook(document.getElementById("ss"));
+        var excelIo = new GC.Spread.Excel.IO();
+
+        fetch("/download_excel")
+            .then(res => res.arrayBuffer())
+            .then(data => {
+                excelIo.open(data, function (json) {
+                spread.fromJSON(json);
+                spread.setActiveSheet("{{ sheet_name }}");
+                }, function (err) {
+                alert("Error loading Excel: " + err);
+                });
+            });
+        
+    </script>
+</body>
+</html>
+

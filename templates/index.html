@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+<!-- Header -->
+{% block head %}
+  <title> Upload Landing Page </title>
+{% endblock %}
+
+<!-- Body -->
+{% block body %}
+  <h1> Please upload a file </h1>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" />
+    <input type="submit" value="Upload" />
+  </form>
+  
+  <form action="/show_excel" method="get">
+    <input type="submit" value="Show Files" />
+  </form>
+
+  <script>
+    // Pass error_message to JS file
+    const error_message = "{{ error_message or '' }}";
+    showPopup(error_message);
+  </script>
+  
+  <!-- <form action="/grammar_check" method="get">
+    <input type="submit" value="" />
+  </form> -->
+{% endblock %}

@@ -1,7 +1,13 @@
 from projects.agent.agent_base import BaseAgent
 from tqdm import tqdm
 from typing import List
+from icecream import ic
 import openpyxl
+import asyncio
+import nest_asyncio
+import numpy as np
+
+nest_asyncio.apply()
 # from projects.modules.gramformer import GramFormerChecker
 
 class GramCheckerAgent(BaseAgent):
@@ -45,7 +51,8 @@ class GramCheckerAgent(BaseAgent):
 
 
     def __init__(self):
-        super.__init__()
+        super().__init__()
+        self.create_fixed_chain()
 
 
     #-- Grammar Checker
@@ -64,7 +71,7 @@ class GramCheckerAgent(BaseAgent):
         def format_input(list_texts):
             rewrite_list_texts = ""
             for id, text in enumerate(list_texts):
-                rewrite_list_texts += f"Document {id}: {text}"
+                rewrite_list_texts += f"Document {id}: {text}\n"
             return rewrite_list_texts
 
         rewrite_list_texts = format_input(list_texts)
@@ -74,7 +81,7 @@ class GramCheckerAgent(BaseAgent):
         return response
 
 
-    async def corrected_sheet(sheet-ros(self, rows, batch_size=10):
+    async def corrected_sheet(self, rows, batch_size=10):
         if not isinstance(rows, np.ndarray):
             rows = np.array(rows, dtype=object)
 
@@ -90,7 +97,7 @@ class GramCheckerAgent(BaseAgent):
             batch_non_nan_indices = non_nan_indices [start_idx: start_idx + batch_size]
 
             tasks.append(
-                check_list(
+                self.check_list(
                     list_texts=batch_non_nan_rows
                 )
             )
@@ -113,7 +120,7 @@ class GramCheckerAgent(BaseAgent):
         for sheet_name in sheet_names:
             sheet = wb[sheet_name]
             rows = [np.array(row) for row in sheet.iter_rows(values_only=True)]
-            tasks.append(corrected_sheet(sheet-ros(rows))
+            tasks.append(corrected_sheet(rows))
         new_sheets = await asyncio.gather(*tasks)
         return new_sheets
 
@@ -227,9 +234,26 @@ class GramCheckerAgent(BaseAgent):
         return word_info
 
 
-    def set_styles(self, modify_sheet, cell_address, root_word_info, common_root, common_modify):
-        modify_word_info = self.get_character_styles(modify_sheet, cell_address)
+    # def set_styles(self, modify_sheet, cell_address, root_word_info, common_root, common_modify):
+    #     modify_word_info = self.get_character_styles(modify_sheet, cell_address)
+    #     modify_cell = modify_sheet.range(cell_address)
+    #     for root_idx, modify_idx in tqdm(zip(common_root, common_modify)):
+    #         word_at_root_idx_info = root_word_info[root_idx]
+    #         word_at_modify_idx_info = modify_word_info[modify_idx]
+
+    #         modify_styles = word_at_root_idx_info["styles"]
+    #         modify_list_char_idx = word_at_modify_idx_info["list_char_idx"] 
+    #         for modify_char_idx in modify_list_char_idx:
+    #             modify_cell_font = modify_cell.characters[modify_char_idx].font
+    #             for attr, value in modify_styles.items():
+    #                 setattr(modify_cell_font, attr, value)
+
+    def set_styles(self, modify_sheet, cell_address, common_root, common_modify, new_value):
+        root_word_info = self.get_character_styles(modify_sheet, cell_address)
         modify_cell = modify_sheet.range(cell_address)
+        modify_cell.value = new_value
+
+        modify_word_info = self.get_character_styles(modify_sheet, cell_address)
         for root_idx, modify_idx in tqdm(zip(common_root, common_modify)):
             word_at_root_idx_info = root_word_info[root_idx]
             word_at_modify_idx_info = modify_word_info[modify_idx]
@@ -240,3 +264,15 @@ class GramCheckerAgent(BaseAgent):
                 modify_cell_font = modify_cell.characters[modify_char_idx].font
                 for attr, value in modify_styles.items():
                     setattr(modify_cell_font, attr, value)
+
+
+    def change_sheet_cell(self, sheet, cell_address, old_value, new_value):
+        common_old, common_new, missing_old, missing_new, result = self.get_common_missing_idx(old_value, new_value)
+        self.set_styles(
+            modify_sheet=sheet,
+            cell_address=cell_address,
+            common_root=common_old,
+            common_modify=common_new,
+            new_value=new_value
+        )
+

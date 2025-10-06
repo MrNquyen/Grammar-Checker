@@ -8,12 +8,27 @@
 <!-- Body -->
 {% block body %}
   <h1> Please upload a file </h1>
+
+  <!-- Form upload file -->
   <form action="/upload" method="post" enctype="multipart/form-data">
-    <input type="file" name="file" />
+    <!-- Local Path input -->
+    <label for="local_path">Local Path:</label>
+    <input type="text" id="local_path" name="local_path" placeholder="Enter local file path" /><br><br>
+
+    <!-- Excel URL input -->
+    <label for="excel_url">Enter Excel OneDrive file URL:</label>
+    <input type="text" id="excel_url" name="excel_url" placeholder="Enter Excel OneDrive file URL" /><br><br>
+
     <input type="submit" value="Upload" />
   </form>
-  
-  <form action="/show_excel" method="get">
+
+  <!-- Show Files -->
+  <form action="/show_excel" method="post">
+    <select name="selected_file" id="files_selection">
+      {% for file in all_files %}
+        <option value="{{ file }}">{{ file }}</option>
+      {% endfor %}
+    </select>
     <input type="submit" value="Show Files" />
   </form>
 
@@ -22,8 +37,4 @@
     const error_message = "{{ error_message or '' }}";
     showPopup(error_message);
   </script>
-  
-  <!-- <form action="/grammar_check" method="get">
-    <input type="submit" value="" />
-  </form> -->
 {% endblock %}

@@ -1,2 +1,12 @@
 save
 __pycache__
+.venv
+.vscode
+templates_old
+test
+trash
+uploads
+.env
+package-lock.json
+package.json
+scripts.sh

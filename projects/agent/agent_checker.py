@@ -13,15 +13,15 @@ nest_asyncio.apply()
 class GramCheckerAgent(BaseAgent):
     ROW_GRAMMAR_CHECK_SYSTEM = """
         You are an English proofreader and editor.
-        Your task is to correct spelling, grammar, vocabulary usage, names, and sentence formatting in the given list of documents.
+        Your task is to correct spelling, grammar, vocabulary usage, names, and sentence formatting in the given list of texts.
     """
 
     ROW_GRAMMAR_CHECK_INSTRUCTION = """
         ### Instructions:
-        Given a list of documents, your task is to check the grammar of each document and return a list of results.
+        Given a list of texts, your task is to check the grammar of each text and return a list of results.
 
         ### Rules:
-        For each document in the input list:
+        For each text in the input list:
             - Correct all spelling mistakes.
             - Ensure all names and words are valid English words or proper nouns.
             - Identify and check all adjectives, verbs, and other sentence elements.
@@ -31,15 +31,16 @@ class GramCheckerAgent(BaseAgent):
             - Improve formatting (capitalization, punctuation, spacing).
             - Do not change the original meaning of the text.
             - Do not add explanations outside of the requested format.
-            - keeping "\n" if exist in the documents.
-            - Return only the corrected text for each document.
+            - keeping "\n" if exist in the texts.
+            - Return only the corrected text for each text.
 
         ### Output format:
         {{
             "data": [
                 {{
                     "status" (bool): <False if errors were found, True if no errors>,
-                    "fixed_text" (str): <corrected text> (empty if no error)
+                    "fixed_text" (str): <corrected text> (empty if no error),
+                    "original_text" (str): <original text before fixed>
                 }},
                 ...
             ]
@@ -71,11 +72,12 @@ class GramCheckerAgent(BaseAgent):
         def format_input(list_texts):
             rewrite_list_texts = ""
             for id, text in enumerate(list_texts):
-                rewrite_list_texts += f"Document {id}: {text}\n"
+                rewrite_list_texts += f"- Input text number {id}: {text}\n\n"
             return rewrite_list_texts
 
         rewrite_list_texts = format_input(list_texts)
         response = await self.chain.ainvoke({"input_list_text": rewrite_list_texts})
+
         if "data" in response:
             return response["data"]
         return response
@@ -92,10 +94,11 @@ class GramCheckerAgent(BaseAgent):
 
         #-- Batch iteration
         tasks = []
+        all_indices = []
         for start_idx in range(0, len(non_nan_rows), batch_size):
             batch_non_nan_rows = non_nan_rows[start_idx: start_idx + batch_size]
             batch_non_nan_indices = non_nan_indices [start_idx: start_idx + batch_size]
-
+            all_indices.extend(batch_non_nan_indices)
             tasks.append(
                 self.check_list(
                     list_texts=batch_non_nan_rows
@@ -105,11 +108,13 @@ class GramCheckerAgent(BaseAgent):
         all_batch_responses = await asyncio.gather(*tasks)
         all_responses = [response for batch_responses in all_batch_responses for response in batch_responses]
 
-        for idx, response in zip(non_nan_indices, all_responses):
+        for idx, response in zip(all_indices, all_responses):
             if not response["status"]:
                 flatten_rows[idx] = response["fixed_text"]
 
         new_rows = flatten_rows.reshape(org_shape)
+
+        # ### DEBUG
         return new_rows
 
 

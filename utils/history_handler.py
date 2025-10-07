@@ -167,6 +167,7 @@ class HistoryHandler:
         row_index, col_index = coordinates
         ic(f"Add history file_id: {file_id} - sheet_name: {sheet_name} - coordinates: {coordinates}")
 
+        # Add new
         ADD_CORRECTION_HISTORY_QUERY = """
             INSERT INTO ERROR_CORRECTION
             (fileId, sheetName, rowIndex, colIndex, oldValue, newValue)
@@ -177,6 +178,7 @@ class HistoryHandler:
             ADD_CORRECTION_HISTORY_QUERY,
             (file_id, sheet_name, row_index, col_index, old_value, new_value)
         )
+        self.connection.commit()
 
 
     def delete_correction_history(self, file_id):
@@ -208,11 +210,6 @@ class HistoryHandler:
                 for row in rows
             ]
         return []
-            
-
-
-    # UTILS
-
 
 
 # UTILS

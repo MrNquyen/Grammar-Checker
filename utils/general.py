@@ -6,22 +6,31 @@ import pickle
 import glob
 import yaml
 import os
+import sys
 import numpy as np
 
-from PIL import Image 
 from tqdm import tqdm
 from icecream import ic
 from argparse import Namespace
 
+def resource_path(relative_path):
+    """Trả về đường dẫn đúng khi chạy file .exe (PyInstaller)."""
+    try:
+        base_path = sys._MEIPASS  # thư mục tạm PyInstaller
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+
 # ==== LOAD FILES ====
 def load_json(path):
-    with open(path, "r", encoding="utf-8") as file:
+    with open(resource_path(path), "r", encoding="utf-8") as file:
         json_content = json.load(file)
         return json_content
     
 #---- Save json
 def save_json(path, content):
-    with open(path, "w", encoding="utf-8") as file:
+    with open(resource_path(path), "w", encoding="utf-8") as file:
         json.dump(content, file, ensure_ascii=False, indent=3)
 
 
@@ -32,23 +41,23 @@ def load_npy(path):
 
 #---- Load yaml file
 def load_yml(path):
-    with open(path, 'r') as file:
+    with open(resource_path(path), 'r') as file:
         config = yaml.safe_load(file)
         return config
     
 # ==== File Processing ====
 def read_file_as_bytes(path):
-    with open(pdf_path, "rb") as f:
+    with open(resource_path(pdf_path), "rb") as f:
         pdf_bytes = f.read()
     return pdf_bytes
 
 def read_plain_text_file(path):
-    with open(path, 'r', encoding='utf-8') as file:
+    with open(resource_path(path), 'r', encoding='utf-8') as file:
         content = file.read()
         return content
 
 def save_plain_text_file(content, path):
-    with open(path, 'w', encoding='utf-8') as file:
+    with open(resource_path(path), 'w', encoding='utf-8') as file:
         file.write(content)
 
 
@@ -59,7 +68,7 @@ def update_dict(original: dict, updates: dict) -> dict:
 
 # ==== FUNCTION ====
 def read_html(html_path):
-    with open(html_path, 'r', encoding='utf-8') as file:
+    with open(resource_path(html_path), 'r', encoding='utf-8') as file:
         html_content = file.read()
         return html_content
 

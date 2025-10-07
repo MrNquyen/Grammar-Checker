@@ -2,6 +2,7 @@ import base64
 import logging
 import os
 import sys
+from utils.general import resource_path
 
 class Logger:
     def __init__(self, name, level=logging.DEBUG):
@@ -16,7 +17,7 @@ class Logger:
         if self.logger.handlers:
             return
         self.file_handler = logging.FileHandler(
-            filename=f"./save/log/logging_{self.name}.log",
+            filename=resource_path(f"save/log/logging_{self.name}.log"),
             encoding="utf-8",
             mode="a"
         )

@@ -2,6 +2,7 @@ import os
 import sqlite3, hashlib
 from icecream import ic
 from utils.excel_utils import convert_coor_to_cell_string
+from utils.general import resource_path
 import json
 
 class HistoryHandler:
@@ -12,7 +13,7 @@ class HistoryHandler:
 
     #-- BUILD
     def create_connection(self):
-        history_db_path = os.path.join(self.save_dir, "database", f"{self.name}.db")
+        history_db_path = resource_path(os.path.join(self.save_dir, "database", f"{self.name}.db"))
         self.connection = sqlite3.connect(history_db_path, check_same_thread=False, timeout=10)
         self.connection.execute("PRAGMA journal_mode=WAL;")
         self.cursor = self.connection.cursor()

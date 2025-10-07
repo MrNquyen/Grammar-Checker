@@ -13,7 +13,7 @@ from flask import (
 )
 from icecream import ic
 
-from utils.general import clean_local_path, load_yml_to_args, load_yml
+from utils.general import clean_local_path, load_yml_to_args, load_yml, resource_path
 from utils.excel_utils import load_excel_wb, onedrive_url_to_iframe, finalize
 from utils.logger import Logger
 from utils.configs import Config
@@ -51,11 +51,7 @@ system = SystemBase(config_run_path)
 writer = system.writer
 
 # ===== Helpers =====
-def resource_path(relative_path):
-    """Get absolute path for static/templates, supporting PyInstaller."""
-    if hasattr(sys, "_MEIPASS"):
-        return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.abspath("."), relative_path)
+
 
 
 # ===== Flask App Setup =====

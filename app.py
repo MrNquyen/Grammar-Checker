@@ -81,6 +81,9 @@ def upload():
     local_path = clean_local_path(request.form.get("local_path", "").strip())
     excel_url = request.form.get("excel_url", "").strip()
 
+    ic(local_path)
+    ic(excel_url)
+
     error_message = None
     if not local_path:
         error_message = "Please enter a local path file"
@@ -108,6 +111,7 @@ def upload():
         )
 
     all_current_files = history_handler.get_all_current_files()
+    ic(all_current_files)
     return render_template("index.html", error_message=error_message, all_files=all_current_files)
 
 
@@ -258,3 +262,7 @@ def open_browser():
 if __name__ == "__main__":
     threading.Timer(1.5, open_browser).start()  # Mở browser sau 1.5s
     run_app()
+
+
+# "C:\Users\RGA6HC\OneDrive - Bosch Group\GramCheck\oke.xlsx"
+# https://bosch-my.sharepoint.com/:x:/r/personal/rga6hc_bosch_com/Documents/GramCheck/Update_Text_TR_FSM_FaultSystemStateManagement_BL0.4C.xlsx?d=w40424d5c4d654f2b841a31e0b6700f2f&csf=1&web=1&e=4xc0pb

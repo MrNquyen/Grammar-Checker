@@ -13,34 +13,32 @@ nest_asyncio.apply()
 class GramCheckerAgent(BaseAgent):
     ROW_GRAMMAR_CHECK_SYSTEM = """
         You are an English proofreader and editor.
-        Your task is to correct spelling, grammar, vocabulary usage, names, and sentence formatting in the given list of texts.
+        Your task is to correct spelling, grammar, and sentence fluency in the given list of texts.
+        You may improve clarity and naturalness, but you must NOT remove or omit any part of the original content.
     """
 
     ROW_GRAMMAR_CHECK_INSTRUCTION = """
         ### Instructions:
-        Given a list of texts, your task is to check the grammar of each text and return a list of results.
+        You are given a list of texts. Your task is to check and improve each text based on grammar, spelling, and readability,
+        while ensuring that NO content or elements from the original text are deleted or removed.
 
         ### Rules:
         For each text in the input list:
-            - Correct all spelling mistakes.
-            - Ensure all names and words are valid English words or proper nouns.
-            - Identify and check all adjectives, verbs, and other sentence elements.
-            - Verify that adjectives are in correct form and placed correctly.
-            - Verify that verbs are in correct tense, form, and agree with their subject.
-            - Fix grammar and sentence structure to be natural and professional.
-            - Improve formatting (capitalization, punctuation, spacing).
-            - Do not change the original meaning of the text.
-            - Do not add explanations outside of the requested format.
-            - keeping "\n" if exist in the texts.
-            - Return only the corrected text for each text.
+            - Correct spelling and grammar errors.
+            - Improve sentence fluency and naturalness while keeping the original meaning.
+            - Do NOT delete or omit any content, words, or ideas from the original text.
+            - You may rearrange sentence parts slightly for clarity, but all original information must remain present.
+            - Preserve all key elements, names, numbers, and formatting.
+            - Keep all spacing, line breaks ("\\n"), and special symbols as they appear in the original.
+            - Do NOT add explanations or commentary outside of the requested output format.
 
         ### Output format:
         {{
             "data": [
                 {{
-                    "status" (bool): <False if errors were found, True if no errors>,
-                    "fixed_text" (str): <corrected text> (empty if no error),
-                    "original_text" (str): <original text before fixed>
+                    "status" (bool): <False if any issues were found and fixed, True if no errors>,
+                    "fixed_text" (str): <corrected and improved text>,
+                    "original_text" (str): <original input text>
                 }},
                 ...
             ]
@@ -72,7 +70,7 @@ class GramCheckerAgent(BaseAgent):
         def format_input(list_texts):
             rewrite_list_texts = ""
             for id, text in enumerate(list_texts):
-                rewrite_list_texts += f"- Input text number {id}: {text}\n\n"
+                rewrite_list_texts += f"- Input text number {id}: `{text}`\n\n"
             return rewrite_list_texts
 
         rewrite_list_texts = format_input(list_texts)
@@ -83,7 +81,7 @@ class GramCheckerAgent(BaseAgent):
         return response
 
 
-    async def corrected_sheet(self, rows, batch_size=10):
+    async def corrected_sheet(self, rows, batch_size=50):
         if not isinstance(rows, np.ndarray):
             rows = np.array(rows, dtype=object)
 
@@ -95,7 +93,9 @@ class GramCheckerAgent(BaseAgent):
         #-- Batch iteration
         tasks = []
         all_indices = []
+        num_tasks = 0 
         for start_idx in range(0, len(non_nan_rows), batch_size):
+            num_tasks += 1 
             batch_non_nan_rows = non_nan_rows[start_idx: start_idx + batch_size]
             batch_non_nan_indices = non_nan_indices [start_idx: start_idx + batch_size]
             all_indices.extend(batch_non_nan_indices)
@@ -104,7 +104,8 @@ class GramCheckerAgent(BaseAgent):
                     list_texts=batch_non_nan_rows
                 )
             )
-            
+        
+        ic(num_tasks)
         all_batch_responses = await asyncio.gather(*tasks)
         all_responses = [response for batch_responses in all_batch_responses for response in batch_responses]
 

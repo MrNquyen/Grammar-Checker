@@ -17,7 +17,8 @@ class Logger:
         if self.logger.handlers:
             return
         self.file_handler = logging.FileHandler(
-            filename=resource_path(f"save/log/logging_{self.name}.log"),
+            filename=f"save/log/logging_{self.name}.log",
+            # filename=resource_path(f"save/log/logging_{self.name}.log"),
             encoding="utf-8",
             mode="a"
         )

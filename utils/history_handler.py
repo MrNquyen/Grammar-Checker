@@ -13,7 +13,7 @@ class HistoryHandler:
 
     #-- BUILD
     def create_connection(self):
-        history_db_path = resource_path(os.path.join(self.save_dir, "database", f"{self.name}.db"))
+        history_db_path = os.path.join(self.save_dir, "database", f"{self.name}.db")
         self.connection = sqlite3.connect(history_db_path, check_same_thread=False, timeout=10)
         self.connection.execute("PRAGMA journal_mode=WAL;")
         self.cursor = self.connection.cursor()
@@ -45,6 +45,7 @@ class HistoryHandler:
                 colIndex INT,
                 oldValue TEXT,
                 newValue TEXT,
+                isReject BOOL,
 
                 PRIMARY KEY (fileId, sheetName, rowIndex, colIndex),
                 FOREIGN KEY (fileId) REFERENCES FILE(fileId) ON DELETE CASCADE
@@ -164,20 +165,20 @@ class HistoryHandler:
 
 
     # ERROR CORRECTION HISTORY
-    def add_correction_history(self, file_id, sheet_name, coordinates, old_value, new_value):
+    def add_correction_history(self, file_id, sheet_name, coordinates, old_value, new_value, is_reject=False):
         row_index, col_index = coordinates
         ic(f"Add history file_id: {file_id} - sheet_name: {sheet_name} - coordinates: {coordinates}")
 
         # Add new
         ADD_CORRECTION_HISTORY_QUERY = """
             INSERT INTO ERROR_CORRECTION
-            (fileId, sheetName, rowIndex, colIndex, oldValue, newValue)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (fileId, sheetName, rowIndex, colIndex, oldValue, newValue, isReject)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """
 
         self.cursor.execute(
             ADD_CORRECTION_HISTORY_QUERY,
-            (file_id, sheet_name, row_index, col_index, old_value, new_value)
+            (file_id, sheet_name, row_index, col_index, old_value, new_value, is_reject)
         )
         self.connection.commit()
 
@@ -191,10 +192,30 @@ class HistoryHandler:
         self.connection.commit() 
 
 
+    def set_correction_reject_status(self, file_id, sheet_name, coordinates, status=False):
+        row_index, col_index = coordinates
+        SET_CORRECTION_STATUS_QUERY = f"""
+            UPDATE ERROR_CORRECTION
+            SET isReject = ?
+            WHERE fileId = ? AND sheetName = ? AND rowIndex = ? AND colIndex = ?;
+        """
+        self.cursor.execute(
+            SET_CORRECTION_STATUS_QUERY,
+            (
+                status, 
+                file_id, 
+                sheet_name, 
+                row_index, 
+                col_index
+            )
+        )
+        self.connection.commit()
+
+
     def get_correction_history_info(self, local_path, sheet_name):
         local_path_hash = make_hash(local_path)
         GET_CORRECTION_HISTORY_QUERY = f"""
-            SELECT oldValue, newValue, rowIndex, colIndex
+            SELECT oldValue, newValue, rowIndex, colIndex, isReject
             FROM FILE, ERROR_CORRECTION
             WHERE FILE.localPathHash = '{local_path_hash}' AND ERROR_CORRECTION.sheetName = '{sheet_name}'
         """
@@ -206,7 +227,8 @@ class HistoryHandler:
                     "old_value": row[0],
                     "new_value": row[1],
                     "coordinates": (row[2], row[3]),
-                    "cell": convert_coor_to_cell_string(row[2], row[3])
+                    "cell": convert_coor_to_cell_string(row[2], row[3]),
+                    "is_reject": row[-1]
                 }
                 for row in rows
             ]

@@ -17,4 +17,5 @@ def get_correction_results(old_rows, new_rows):
             "cell": convert_coor_to_cell_string(x, y)
         }
         for x, y in cell_coordinates
+        if str(old_rows[x][y]).strip() != str(new_rows[x][y]).strip()
     ]

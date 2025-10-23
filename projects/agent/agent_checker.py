@@ -1,14 +1,32 @@
 from projects.agent.agent_base import BaseAgent
+from langchain.chains import LLMChain
 from tqdm import tqdm
 from typing import List
 from icecream import ic
 import openpyxl
+import json
 import asyncio
 import nest_asyncio
+import re
 import numpy as np
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.runnables import RunnableSequence, RunnableLambda
+
+
 
 nest_asyncio.apply()
 # from projects.modules.gramformer import GramFormerChecker
+
+        # For each text in the input list:
+        #     - Correct spelling and grammar errors.
+        #     - Improve sentence fluency and naturalness while keeping the original meaning.
+        #     - Do NOT delete or omit any content, words, or ideas from the original text.
+        #     - You may rearrange sentence parts slightly for clarity, but all original information must remain present.
+        #     - Preserve all key elements, names, numbers, and formatting.
+        #     - Keep all spacing, line breaks ("\\n"), and special symbols as they appear in the original.
+        #     - Do NOT add explanations or commentary outside of the requested output format.
+
 
 class GramCheckerAgent(BaseAgent):
     ROW_GRAMMAR_CHECK_SYSTEM = """
@@ -19,23 +37,24 @@ class GramCheckerAgent(BaseAgent):
 
     ROW_GRAMMAR_CHECK_INSTRUCTION = """
         ### Instructions:
-        You are given a list of texts. Your task is to check and improve each text based on grammar, spelling, and readability,
-        while ensuring that NO content or elements from the original text are deleted or removed.
+        You are given a list of texts. Your task is to check and improve each text based on grammar, spelling, and readability, while ensuring that NO content or elements from the original text are deleted or removed.
 
         ### Rules:
-        For each text in the input list:
-            - Correct spelling and grammar errors.
-            - Improve sentence fluency and naturalness while keeping the original meaning.
-            - Do NOT delete or omit any content, words, or ideas from the original text.
-            - You may rearrange sentence parts slightly for clarity, but all original information must remain present.
-            - Preserve all key elements, names, numbers, and formatting.
+        1. For each text in the input list:
+            - Correct only **grammar**, **spelling**, and incorrect **word usage**.
             - Keep all spacing, line breaks ("\\n"), and special symbols as they appear in the original.
-            - Do NOT add explanations or commentary outside of the requested output format.
+            
+        2. Output as a **structured JSON format** that JsonOutputParser can parsed.
+
+        ### Notes:
+            - Do NOT add or remove any content, words, or symbols.
+            - Do NOT correct the error related to symbols or whitespace.
 
         ### Output format:
         {{
             "data": [
                 {{
+                    "text_id" (int): <ID of the input text>,
                     "status" (bool): <False if any issues were found and fixed, True if no errors>,
                     "fixed_text" (str): <corrected and improved text>,
                     "original_text" (str): <original input text>
@@ -56,32 +75,43 @@ class GramCheckerAgent(BaseAgent):
 
     #-- Grammar Checker
     def create_fixed_chain(self):
-        json_parser = self.get_output_parser("json")
-        row_grammar_check_prompt = self.create_simple_prompt(
-            system_prompt_template=self.ROW_GRAMMAR_CHECK_SYSTEM,
-            user_prompt_template=self.ROW_GRAMMAR_CHECK_INSTRUCTION,
-            with_input_variables=False
+        ROW_GRAMMAR_CHECK_PROMPT = self.ROW_GRAMMAR_CHECK_SYSTEM + self.ROW_GRAMMAR_CHECK_INSTRUCTION
+        ROW_GRAMMAR_CHECK_PROMPT_TEMPLATE = PromptTemplate(
+            template=ROW_GRAMMAR_CHECK_PROMPT,
+            input_variables=["input_list_text"]
         )
-        # grammar_check_prompt = ChatPromptTemplate(grammar_check_prompt.messages)
-        self.chain = row_grammar_check_prompt | self.gpt_llm | json_parser
+
+        sanitize_step = RunnableLambda(lambda x: self.sanitize_json(x))
+        parser = JsonOutputParser()
+        self.chain = (
+            ROW_GRAMMAR_CHECK_PROMPT_TEMPLATE
+            | self.gpt_llm
+            | parser       
+        )
+        # self.chain = ROW_GRAMMAR_CHECK_PROMPT_TEMPLATE | self.gpt_llm | parser
 
 
     async def check_list(self, list_texts):
-        def format_input(list_texts):
-            rewrite_list_texts = ""
+        def format_input_to_json(list_texts):
+            rewrite_list_texts = []
             for id, text in enumerate(list_texts):
-                rewrite_list_texts += f"- Input text number {id}: `{text}`\n\n"
+                rewrite_list_texts.append({
+                    "id": id + 1,
+                    "text": text
+                })
             return rewrite_list_texts
 
-        rewrite_list_texts = format_input(list_texts)
+        rewrite_list_texts = format_input_to_json(list_texts)
         response = await self.chain.ainvoke({"input_list_text": rewrite_list_texts})
 
+        if "text" in response:
+            response = response["text"]
         if "data" in response:
-            return response["data"]
+            response = response["data"]
         return response
 
 
-    async def corrected_sheet(self, rows, batch_size=50):
+    async def corrected_sheet(self, rows, batch_size=25):
         if not isinstance(rows, np.ndarray):
             rows = np.array(rows, dtype=object)
 
@@ -91,11 +121,10 @@ class GramCheckerAgent(BaseAgent):
         non_nan_rows = flatten_rows[non_nan_indices]
 
         #-- Batch iteration
+        #-- Batch iteration
         tasks = []
         all_indices = []
-        num_tasks = 0 
         for start_idx in range(0, len(non_nan_rows), batch_size):
-            num_tasks += 1 
             batch_non_nan_rows = non_nan_rows[start_idx: start_idx + batch_size]
             batch_non_nan_indices = non_nan_indices [start_idx: start_idx + batch_size]
             all_indices.extend(batch_non_nan_indices)
@@ -104,18 +133,19 @@ class GramCheckerAgent(BaseAgent):
                     list_texts=batch_non_nan_rows
                 )
             )
-        
-        ic(num_tasks)
+            
         all_batch_responses = await asyncio.gather(*tasks)
         all_responses = [response for batch_responses in all_batch_responses for response in batch_responses]
 
         for idx, response in zip(all_indices, all_responses):
             if not response["status"]:
-                flatten_rows[idx] = response["fixed_text"]
-
+                if "text" in response:
+                    response = response["text"]
+                if "data" in response:
+                    response = response["data"]
+                if not response["fixed_text"].strip() == response["original_text"].strip():
+                    flatten_rows[idx] = response["fixed_text"]
         new_rows = flatten_rows.reshape(org_shape)
-
-        # ### DEBUG
         return new_rows
 
 
@@ -281,4 +311,26 @@ class GramCheckerAgent(BaseAgent):
             common_modify=common_new,
             new_value=new_value
         )
+
+    #-- PREPROCESSING
+    def sanitize_json(self, raw_output: str):
+        if isinstance(raw_output, dict):
+            return json.dumps(raw_output, ensure_ascii=False)
+
+        raw = str(raw_output).strip()
+        raw = re.sub(r"^```(?:json)?", "", raw)
+        raw = re.sub(r"```$", "", raw)
+        raw = raw.strip()
+        raw = re.sub(r'^[^{\[]*', '', raw)
+        raw = re.sub(r'[^}\]]*$', '', raw)
+
+        try:
+            parsed = json.loads(raw)
+            compact = json.dumps(parsed, ensure_ascii=False, indent=2)
+            return compact
+        except Exception:
+            return raw
+
+
+
 

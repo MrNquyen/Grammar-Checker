@@ -7,6 +7,24 @@
 
     <!-- Styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <!-- <style>
+        .tab-btn:hover {
+            background-color: #ddd !important;
+        }
+        .tab-btn.active {
+            background-color: #ccc !important;
+            border-bottom: 2px solid #000 !important;
+        }
+        .tab-pane {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+    </style> -->
 
     <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/show_excel.js') }}" type="text/javascript"></script>
@@ -53,8 +71,24 @@
 
         <!-- Error panel -->
         <aside id="error-panel">
-            <h3>Found Spelling</h3>
-            <ul id="error-list"></ul>
+            <div class="tab">
+                <button class="tab-btn active" onclick="openTab(event, 'found-spelling')">Error List</button>
+                <button class="tab-btn" onclick="openTab(event, 'rejected')">Rejected</button>
+            </div>
+            <div class="tab-content">
+                <div id="found-spelling" class="tab-pane active">
+                    <ul id="error-list">
+                    <li>Error 1</li>
+                    <li>Error 2</li>
+                    </ul>
+                </div>
+                <div id="rejected" class="tab-pane">
+                    <ul id="rejected-list">
+                    <li>Reject 1</li>
+                    <li>Reject 2</li>
+                    </ul>
+                </div>
+            </div>
         </aside>
     </main>
 
@@ -65,9 +99,40 @@
         const currentSheetName = "{{ current_sheet_name | default('') }}";
         const correctionResults = {{ correction_results | default([]) | tojson | safe }};
 
+
+        // Swith tab between reject and allow
+        // document.querySelectorAll(".tab-btn").forEach(btn => {
+        //     btn.addEventListener("click", () => {
+        //         const targetTab = btn.getAttribute("data-tab");
+
+        //         // Deactive all button
+        //         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        //         btn.classList.add("active");
+
+        //         // Hide all tab
+        //         document.querySelectorAll(".tab-pane").forEach(tab => tab.classList.remove("active"));
+
+        //         // Show selected tab
+        //         document.getElementById(targetTab).classList.add("active");
+        //     });
+        // });
         
-        
+        function openTab(evt, tabName) {
+            // Hide all tab content
+            const tabcontent = document.querySelectorAll('.tab-pane');
+            tabcontent.forEach(content => content.classList.remove('active'));
+
+            // Remove "active" class from all buttons
+            const tabbuttons = document.querySelectorAll('.tab-btn');
+            tabbuttons.forEach(link => link.classList.remove('active'));
+
+            // Show the current tab and add "active" class to the clicked button
+            document.getElementById(tabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
+
         // Update error list
+        console.log("Correction Report when show sheet", correctionResults)
         updateGrammarPanel(correctionResults);
         
         console.log("Iframe:", "{{ iframe }}");

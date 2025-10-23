@@ -23,7 +23,7 @@
   </form>
 
   <!-- Show Files -->
-  <form action="/show_excel" method="post">
+  <form action="/show_excel" method="get">
     <select name="selected_file" id="files_selection">
       {% for file in all_files %}
         <option value="{{ file }}">{{ file }}</option>

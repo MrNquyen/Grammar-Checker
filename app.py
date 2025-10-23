@@ -14,7 +14,7 @@ from flask import (
 from icecream import ic
 
 from utils.general import clean_local_path, load_yml_to_args, load_yml, resource_path
-from utils.excel_utils import load_excel_wb, onedrive_url_to_iframe, finalize
+from utils.excel_utils import load_excel_wb, onedrive_url_to_iframe, finalize, convert_cell_string_to_coor
 from utils.logger import Logger
 from utils.configs import Config
 from utils.registry import registry
@@ -115,10 +115,11 @@ def upload():
     return render_template("index.html", error_message=error_message, all_files=all_current_files)
 
 
-@app.route("/select_file", methods=["POST"])
+@app.route("/select_file", methods=["PATCH"])
 def select_file():
     """Switch session to selected file."""
-    selected_local_path = request.args.get("selected_local_path")
+    request_body = request.get_json()
+    selected_local_path = request_body.get("selected_local_path")
     file_info = history_handler.get_file_information(selected_local_path)
     session.update({
         "current_excel_file_path": file_info["local_path"],
@@ -130,10 +131,11 @@ def select_file():
     return "", 204
 
 
-@app.route("/show_excel", methods=["GET", "POST"])
+@app.route("/show_excel", methods=["GET"])
 def show_excel():
     """Render the sheet viewer page."""
-    selected_file = request.form.get("selected_file")
+    selected_file = request.args.get("selected_file")
+    ic(selected_file)
     if not selected_file:
         return render_template("index.html", error_message="Please select a file first")
 
@@ -141,7 +143,7 @@ def show_excel():
     return render_template("show_excel.html", sheets=session["sheet_names"], iframe=session["current_iframe"])
 
 
-@app.route("/show_sheet", methods=["GET", "POST"])
+@app.route("/show_sheet", methods=["GET"])
 def show_sheet():
     """Show a specific sheet in the viewer."""
     current_sheet_name = request.args.get("sheet")
@@ -158,6 +160,7 @@ def show_sheet():
         local_path=session["current_excel_file_path"],
         sheet_name=current_sheet_name
     )
+    ic(correction_results)
 
     return render_template(
         "show_excel.html",
@@ -166,6 +169,36 @@ def show_sheet():
         current_sheet_name=current_sheet_name,
         correction_results=correction_results
     )
+
+
+@app.route("/set_correction_reject_status", methods=["POST"])
+def set_correction_reject_status():
+    request_body = request.get_json()
+    cell = request_body.get("cell")
+    status = request_body.get("status")
+    coordinates = convert_cell_string_to_coor(cell)
+
+    file_id = history_handler.get_file_id(session["current_excel_file_path"])
+    history_handler.set_correction_reject_status(
+        file_id=file_id,
+        sheet_name=session["current_sheet_name"],
+        coordinates=coordinates,
+        status=status
+    )
+    correction_results = history_handler.get_correction_history_info(
+        local_path=session["current_excel_file_path"],
+        sheet_name=session["current_sheet_name"]
+    )
+
+    return jsonify({
+        "correction_results": correction_results
+    }) 
+
+
+@app.route("/allow_correction", methods=["PATCH"])
+def allow_correction():
+    request_body = request.get_json()
+    cell = request_body.get("cell")
 
 
 @app.route("/show_sheet_cell", methods=["POST"])
@@ -218,7 +251,7 @@ def download_excel():
     return send_file(session["current_excel_file_path"], as_attachment=True)
 
 
-@app.route("/check_grammar", methods=["POST", "GET"])
+@app.route("/check_grammar", methods=["POST"])
 def check_grammar():
     """Check grammar for the current sheet."""
     writer.LOG_INFO("Start Checking Grammar")
@@ -253,7 +286,8 @@ def check_grammar():
 
 
 def run_app():
-    app.run(debug=False, use_reloader=False)
+    # app.run(debug=False, use_reloader=False)
+    app.run(debug=True, use_reloader=True)
 
 
 def open_browser():

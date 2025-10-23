@@ -78,6 +78,38 @@ def convert_coor_to_cell_string(x, y):
     return cell_str
 
 
+def convert_cell_string_to_coor(cell_str):
+    """
+    Convert cell string (like 'A1', 'B2', 'AA10') to coordinates (x, y)
+    Returns 0-based index coordinates
+    
+    Args:
+        cell_str (str): Cell string like 'A1', 'B2', etc.
+    
+    Returns:
+        tuple: (x, y) coordinates where x is row (0-based), y is column (0-based)
+    """
+    # Remove any whitespace and convert to uppercase
+    cell_str = cell_str.strip().upper()
+    
+    # Extract column letters and row number using regex
+    match = re.match(r'^([A-Z]+)(\d+)$', cell_str)
+    if not match:
+        raise ValueError(f"Invalid cell string format: {cell_str}")
+    
+    col_letters = match.group(1)
+    x = int(match.group(2))
+    
+    # Convert column letters to number (A=1, B=2, ..., Z=26, AA=27, etc.)
+    y = 0
+    for char in col_letters:
+        y = y * 26 + (ord(char) - ord('A') + 1)
+    
+    x = x - 1
+    y = y - 1
+    return x, y
+
+
 def finalize(wb):
     wb.save()
     wb.close()

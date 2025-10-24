@@ -316,3 +316,37 @@ function highlightDiff(oldStr, newStr) {
         new: resultNew.join(' ')
     };
 }
+
+
+function exportCorrections() {
+    console.log("Export Corrections...");
+    // Turn On Spinner
+    
+    document.getElementById('export-corrections-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        // Show loading overlay
+        document.getElementById('loading-overlay').style.display = 'block';
+        
+        fetch('/export_correction', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => {
+            if (response.ok) {
+                alert('Export completed successfully!');
+            } else {
+                alert('Export failed. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred during export.');
+        })
+        .finally(() => {
+            // Hide loading overlay
+            document.getElementById('loading-overlay').style.display = 'none';
+        });
+    });
+}

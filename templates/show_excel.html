@@ -46,6 +46,10 @@
             </form>
         </div>
 
+        <form id="export-corrections-form" action="/export_correction" method="post">
+            <input type="submit" value="Export correction">
+        </form>
+
         <form id="check-sheet-grammar">
             <input type="submit" value="Check Grammar">
         </form>
@@ -137,6 +141,10 @@
         
         console.log("Iframe:", "{{ iframe }}");
         
+        // Export Report Correction
+        exportCorrections()
+
+        // Set current sheet in selector
         if (currentSheetName) {
             sheetSelect.value = currentSheetName;
             requestCheckSheetGrammar("check-sheet-grammar", currentSheetName);

@@ -16,17 +16,7 @@ from langchain_core.runnables import RunnableSequence, RunnableLambda
 
 
 nest_asyncio.apply()
-# from projects.modules.gramformer import GramFormerChecker
-
-        # For each text in the input list:
-        #     - Correct spelling and grammar errors.
-        #     - Improve sentence fluency and naturalness while keeping the original meaning.
-        #     - Do NOT delete or omit any content, words, or ideas from the original text.
-        #     - You may rearrange sentence parts slightly for clarity, but all original information must remain present.
-        #     - Preserve all key elements, names, numbers, and formatting.
-        #     - Keep all spacing, line breaks ("\\n"), and special symbols as they appear in the original.
-        #     - Do NOT add explanations or commentary outside of the requested output format.
-
+semaphore = asyncio.Semaphore(8) 
 
 class GramCheckerAgent(BaseAgent):
     ROW_GRAMMAR_CHECK_SYSTEM = """
@@ -111,7 +101,7 @@ class GramCheckerAgent(BaseAgent):
         return response
 
 
-    async def corrected_sheet(self, rows, batch_size=25):
+    async def corrected_sheet(self, rows, batch_size=15):
         if not isinstance(rows, np.ndarray):
             rows = np.array(rows, dtype=object)
 
@@ -120,7 +110,11 @@ class GramCheckerAgent(BaseAgent):
         non_nan_indices  = [i for i, v in enumerate(flatten_rows) if v is not None]
         non_nan_rows = flatten_rows[non_nan_indices]
 
-        #-- Batch iteration
+        async def limited_check(list_texts):
+            async with semaphore:
+                await asyncio.sleep(0.4)
+                return await self.check_list(list_texts)
+
         #-- Batch iteration
         tasks = []
         all_indices = []
@@ -128,11 +122,7 @@ class GramCheckerAgent(BaseAgent):
             batch_non_nan_rows = non_nan_rows[start_idx: start_idx + batch_size]
             batch_non_nan_indices = non_nan_indices [start_idx: start_idx + batch_size]
             all_indices.extend(batch_non_nan_indices)
-            tasks.append(
-                self.check_list(
-                    list_texts=batch_non_nan_rows
-                )
-            )
+            tasks.append(limited_check(list_texts=batch_non_nan_rows))
             
         all_batch_responses = await asyncio.gather(*tasks)
         all_responses = [response for batch_responses in all_batch_responses for response in batch_responses]
@@ -143,7 +133,7 @@ class GramCheckerAgent(BaseAgent):
                     response = response["text"]
                 if "data" in response:
                     response = response["data"]
-                if not response["fixed_text"].strip() == response["original_text"].strip():
+                if not str(response["fixed_text"]).strip() == str(response["original_text"]).strip():
                     flatten_rows[idx] = response["fixed_text"]
         new_rows = flatten_rows.reshape(org_shape)
         return new_rows

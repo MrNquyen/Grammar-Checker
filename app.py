@@ -3,10 +3,12 @@
 import os
 import sys
 import time
+import json
 import threading
 import webbrowser
 
 import xlwings as xw
+import pandas as pd
 from flask import (
     Flask, render_template, request,
     send_file, session, jsonify
@@ -282,6 +284,66 @@ def check_grammar():
         "iframe": session.get("current_iframe", ""),
         "results": results
     })
+
+
+@app.route("/export_correction", methods=["POST"])
+def export_correction():
+    """EXPORT CORRECTION FOR EXCEL FILE"""
+    try:
+        writer.LOG_INFO("Start Export to Excel")
+        
+        # Check if session has required data
+        if "current_excel_file_path" not in session or "sheet_names" not in session:
+            return jsonify({"error": "No file selected"}), 400
+        
+        #-- Convert to df
+        data = {
+            "sheetname": [],
+            "cell": [],
+            "coordinates": [],
+            "new_value": [],
+            "old_value": [],
+        }
+        
+        for sheet_name in session["sheet_names"]:
+            correction_results = history_handler.get_correction_history_info(
+                local_path=session["current_excel_file_path"],
+                sheet_name=sheet_name
+            )
+            for item in correction_results:
+                if not item["is_reject"]:
+                    data["sheetname"].append(sheet_name)
+                    data["cell"].append(item["cell"])
+                    data["coordinates"].append(item["coordinates"])
+                    data["new_value"].append(item["new_value"])
+                    data["old_value"].append(item["old_value"])
+
+        df = pd.DataFrame(data)
+        basename = os.path.basename(session["current_excel_file_path"])
+        
+        # Ensure export directory exists
+        os.makedirs("save/export", exist_ok=True)
+        
+        # Create output filename with corrections suffix
+        name, ext = os.path.splitext(basename)
+        output_path = f"save/export/{name}_corrections{ext}"
+        
+        df.to_excel(output_path, index=False)
+        writer.LOG_INFO(f"Finish Exporting to {output_path}")
+        
+        # Return successful response (status 200)
+        return jsonify({
+            "message": "Export completed successfully",
+            "file_path": output_path,
+            "total_corrections": len(df)
+        }), 200
+        
+    except Exception as e:
+        writer.LOG_ERROR(f"Export failed: {str(e)}")
+        # Return error response (status 500)
+        return jsonify({
+            "error": str(e)
+        }), 500
 
 
 
